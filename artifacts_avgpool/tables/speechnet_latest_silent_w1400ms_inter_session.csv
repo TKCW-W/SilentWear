@@ -1,0 +1,6 @@
+subject,condition,model_name,model_name_id,model_run,run_path,balanced_acc_mean,balanced_acc_std,balanced_acc_vals,mean_std_perc
+S01,silent,speechnet,w1400ms,model_1,artifacts_avgpool/models/inter_session/S01/silent/speechnet/w1400ms/model_1,0.6378703703703703,0.10530821003848133,"[0.7166666666666666, 0.4890277777777779, 0.7079166666666666]",63.8±10.5
+S02,silent,speechnet,w1400ms,model_1,artifacts_avgpool/models/inter_session/S02/silent/speechnet/w1400ms/model_1,0.5448148148148148,0.21457694564786434,"[0.2668055555555555, 0.7891666666666667, 0.5784722222222222]",54.5±21.5
+S03,silent,speechnet,w1400ms,model_1,artifacts_avgpool/models/inter_session/S03/silent/speechnet/w1400ms/model_1,0.6199074074074075,0.011298383231632536,"[0.6231944444444445, 0.6047222222222222, 0.6318055555555556]",62.0±1.1
+S04,silent,speechnet,w1400ms,model_1,artifacts_avgpool/models/inter_session/S04/silent/speechnet/w1400ms/model_1,0.6292592592592593,0.038029075224284246,"[0.5755555555555555, 0.6586111111111111, 0.6536111111111111]",62.9±3.8
+All,silent,speechnet,w1400ms,latest,,0.6079629629629629,0.03700791679289441,,60.8±3.7

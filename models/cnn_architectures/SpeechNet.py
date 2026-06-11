@@ -41,6 +41,7 @@ class SpeechNet(nn.Module):
         blocks_config: Optional[List[Dict[str, Any]]] = None,
         p_dropout: float = 0.0,
         global_pool: str = "avg",  # "avg" or "max"
+        pool_type: str = "max",  # "max" or "avg" for per-block pooling
         **kwargs,
     ):
 
@@ -95,7 +96,10 @@ class SpeechNet(nn.Module):
 
             layers += [conv, nn.BatchNorm2d(out_ch), nn.ReLU(inplace=True)]
 
-            layers += [nn.MaxPool2d(kernel_size=(pool_c, pool_t), stride=(pool_c, pool_t))]
+            if pool_type == "avg":
+                layers += [nn.AvgPool2d(kernel_size=(pool_c, pool_t), stride=(pool_c, pool_t))]
+            else:
+                layers += [nn.MaxPool2d(kernel_size=(pool_c, pool_t), stride=(pool_c, pool_t))]
 
             self.blocks.append(nn.Sequential(*layers))
             in_ch = out_ch

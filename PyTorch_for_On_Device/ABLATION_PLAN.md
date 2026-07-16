@@ -55,8 +55,12 @@ Notes / caveats:
 | E5 scope→head-only | 85.6 | 85.2 | 88.5 | 80.7 | 85.00 | −3.15 |
 | **E3 batch 32→1** | 58.0 | 64.8 | 58.2 | 55.4 | **59.07** | **−29.08** 💥 |
 | ODE (all on-device) | 87.6 | 88.0 | 87.2 | 82.0 | 86.20 | −1.95 |
-| E3b batch1 + frozen-BN (full) | _running_ | | | | | |
-| E3c batch1 + head-only | _running_ | | | | | |
+| E3b batch1 + frozen-BN (full) | 80.7 | 86.5 | 86.5 | 83.3 | 84.26 | −3.89 |
+| E3c batch1 + head-only | 84.4 | 85.2 | 88.0 | 81.3 | 84.72 | −3.43 |
+
+**Confirmation:** E3 (batch1, live BN) = 59.1, but E3b (batch1, **frozen** BN) = 84.3 and E3c
+(batch1, head-only) = 84.7 — freezing BN recovers **~25 pp** of the batch-1 collapse. So the
+catastrophe is entirely the **live BatchNorm at batch-1**, not batch-1 gradients or the optimizer.
 
 _(official paper ft_summary mean(2–5) ≈ 88.2%; our shipped head-only w/ n_accum ≈ 84.7%)_
 

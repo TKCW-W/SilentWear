@@ -1,0 +1,5 @@
+variant,mean_b2_5
+head_frozen,84.68
+head_ttadabn,82.92
+adabnfull_frozen,85.42
+adabnfull_ttadabn,87.78

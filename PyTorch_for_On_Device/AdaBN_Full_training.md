@@ -87,12 +87,23 @@ it beats head-only (+3.1 pp) and nearly matches the paper (−0.46 pp).** It hel
 head-only was weakest: the hard batches b3 (+6.3) and b5 (+3.7), recovering the feature-adaptation
 capacity that head-only lacks.
 
-**Honest caveat (two sources of gain):** the AdaBN eval re-collects BN stats on the eval batch, so
-the advantage over head-only mixes (a) full-model feature adaptation and (b) test-time BN-stat
-adaptation. The batch-1 row isolates (b): base model + test-time AdaBN = 82.0 vs 72.6 pretrained
-(**+9.5 pp with no training at all**). Both are legitimate on-device (forward-only) operations, so
-87.78 is a fair on-device-achievable number — but a clean split needs "head-only + test-time AdaBN"
-and "AdaBN-full without re-collection" (follow-up).
+### Disambiguation — is the win just a free test-time stat refresh? **No — it's a synergy.**
+2×2 (mean b2–5, `adabn_disambiguation.py` / `results/adabn_disambiguation_S01_vocalized.csv`):
+
+| | frozen-stats eval | test-time AdaBN eval |
+|---|---|---|
+| **head-only** | 84.68 (A) | 82.92 (B) |
+| **AdaBN-full** | 85.42 (C) | 87.78 (D) |
+
+- test-time AdaBN on head-only **HURTS** (B−A = **−1.76**) — the head was trained against frozen
+  pretrained stats, so refreshing them at eval miscalibrates it (cf. idea1 `head_then_adabn`).
+- full-model training alone (frozen eval) barely helps (C−A = **+0.74**).
+- combined = **+3.10**, but the parts sum to −1.02 → **interaction = +4.13 pp**.
+
+So the +3.1 pp is **not** a cheap free stat refresh: the stat refresh only pays off *because* the
+model was **full-trained under the AdaBN regime** (train and eval both normalize with collected batch
+stats → they are consistent). Neither piece works alone; they are coupled by design. You cannot get
+this by bolting test-time AdaBN onto the existing head-only model (that regresses).
 
 **Cost vs head-only:** full-model training on-device (more compute/memory + trainable conv/BN),
 a forward-only stat-collection pass per round, and careful lr (eff_lr ~0.001–0.005). Head-only is

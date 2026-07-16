@@ -34,6 +34,8 @@ CONFIGS = {
     "E5": {**P0, "scope": "head"},
     "E6": {**P0, "dropout": 0.0},
     "E7": {**P0, "data": "ondevice", "epochs": 40, "sched": None},
+    "E3b": {**P0, "bs": 1, "bn": "frozen"},   # batch-1 but frozen BN, full model -> isolate BN as cause
+    "E3c": {**P0, "bs": 1, "scope": "head"},  # batch-1 but head-only (BN frozen via scope)
     "ODE": dict(scope="head", opt="sgd", lr=0.01, wd=0.0, momentum=0.0, sched=None,
                 bs=1, bn="frozen", dropout=0.0, data="ondevice", epochs=40, patience=10),
 }

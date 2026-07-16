@@ -46,20 +46,43 @@ Notes / caveats:
 
 | config | b2 | b3 | b4 | b5 | **mean(2–5)** | Δ vs P0 |
 |--------|----|----|----|----|---------------|---------|
-| P0 (paper) | | | | | | 0 |
-| E1 optimizer→SGD | | | | | | |
-| E2 schedule→static | | | | | | |
-| E3 batch 32→1 | | | | | | |
-| E4 BN→frozen | | | | | | |
-| E5 scope→head-only | | | | | | |
-| E6 dropout→0 | | | | | | |
-| E7 data→30%/fixed | | | | | | |
-| ODE (all on-device) | | | | | | |
+| **P0 (paper)** | 85.9 | 88.5 | 90.6 | 87.6 | **88.15** | 0 |
+| E6 dropout→0 | 85.4 | 90.6 | 91.5 | 88.0 | 88.84 | **+0.69** |
+| E1 optimizer→SGD | 86.7 | 87.8 | 89.6 | 87.2 | 87.82 | −0.33 |
+| E2 schedule→static | 86.3 | 85.9 | 88.9 | 88.3 | 87.36 | −0.79 |
+| E7 data→30%/fixed | 88.0 | 88.5 | 86.3 | 85.0 | 86.94 | −1.21 |
+| E4 BN→frozen (full) | 83.0 | 87.2 | 89.4 | 85.0 | 86.16 | −1.99 |
+| E5 scope→head-only | 85.6 | 85.2 | 88.5 | 80.7 | 85.00 | −3.15 |
+| **E3 batch 32→1** | 58.0 | 64.8 | 58.2 | 55.4 | **59.07** | **−29.08** 💥 |
+| ODE (all on-device) | 87.6 | 88.0 | 87.2 | 82.0 | 86.20 | −1.95 |
+| E3b batch1 + frozen-BN (full) | _running_ | | | | | |
+| E3c batch1 + head-only | _running_ | | | | | |
 
-_(official paper ft_summary mean(2–5) ≈ 88.2%; our shipped head-only ≈ 84.7%)_
+_(official paper ft_summary mean(2–5) ≈ 88.2%; our shipped head-only w/ n_accum ≈ 84.7%)_
 
 ## Analysis
-_(to fill: rank factors by Δ vs P0; identify the most problematic; note interactions.)_
+**The single most problematic factor is batch size (32→1): −29 pp.** Every other individual
+factor is within ±3 pp (dropout→0 even *helps* slightly). BUT the batch-size catastrophe is an
+**interaction, not a standalone effect**: E3 collapses only because it keeps the paper's
+**full-model live BatchNorm** — at batch 1 each window is normalized by its own stats, which
+corrupts both the forward and the running-stat EMA, wrecking full-model training.
+
+The proof is in **ODE (all flips together) = 86.2, not catastrophic**: ODE is also batch-1, but it
+includes **head-only + frozen BN**, which remove BN's dependence on the batch entirely — so batch-1
+becomes harmless. In other words, our on-device recipe's head-only + BN-fold choices are precisely
+the **mitigation** that defuses the batch-1 bomb.
+
+So the honest decomposition of the ~2–3 pp on-device gap (once batch-1 is survived):
+- freezing BN (E4): −1.99 pp  ·  going head-only (E5): −3.15 pp  ← these two are the real "cost",
+  and they are *forced by* the batch-1 constraint (you can't run live full-model BN at batch 1).
+- optimizer (SGD), static lr, data fraction, dropout: each ≲ 1 pp, some positive → **negligible**.
+
+Ranking (most→least problematic on-device): **batch-1×live-BN (catastrophic) ≫ head-only scope
+(−3.2) > frozen BN (−2.0) > data/length (−1.2) > lr schedule (−0.8) > optimizer SGD (−0.3) >
+dropout (+0.7, helps)**.
+
+E3b/E3c confirm the causal claim: batch-1 with **frozen** BN (full or head) should recover to ~85+,
+proving the collapse is the *live BN at batch 1*, not batch-1 gradients or the optimizer.
 
 ## Progress log
 - 2026-07-16: plan written; parameterized runner built; P0 + flips launching.

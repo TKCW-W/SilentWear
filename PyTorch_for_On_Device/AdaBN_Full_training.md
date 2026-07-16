@@ -105,6 +105,26 @@ model was **full-trained under the AdaBN regime** (train and eval both normalize
 stats → they are consistent). Neither piece works alone; they are coupled by design. You cannot get
 this by bolting test-time AdaBN onto the existing head-only model (that regresses).
 
+### Attribution vs the BASE model — recollection vs fine-tuning (recollect-only control)
+The batch-1 row (no FT yet) already showed **+9.5 pp from stat recollection alone**. To split the
+*later*-batch gains, add the control **base model (never FT'd) + stats recollected on each batch**:
+
+| batch | no_ft | recollect-only (no FT) | AdaBN-full (FT+recollect) | recollect gain | FT gain |
+|---|---|---|---|---|---|
+| 2 | 74.6 | 84.8 | 88.0 | +10.2 | +3.2 |
+| 3 | 77.0 | 88.2 | 89.6 | +11.1 | +1.5 |
+| 4 | 78.0 | 87.4 | 88.9 | +9.4 | +1.5 |
+| 5 | 65.6 | 80.4 | 84.6 | +14.8 | +4.3 |
+| **mean b2–5** | 73.8 | **85.2** | 87.8 | **+11.4** | **+2.6** |
+
+**Of the total +14.0 pp over the base model, ≈+11.4 pp (82%) is BN-stat recollection (label-free,
+no training) and only ≈+2.6 pp (18%) is the fine-tuning.** Recollect-only (85.2) **already beats our
+head-only FT recipe (84.68) with zero training.** So the dominant lever is **adapting BN statistics to
+the target session**, not fine-tuning — and recollection helps only when the classifier is consistent
+with it (base or full-AdaBN-trained; it *hurts* the head-only-FT model, whose fc was trained against
+frozen stats). Practical upshot: the cheapest big on-device win is a forward-only BN-stat-collection
+pass; full-model FT adds a modest, real +2.6 pp on top. (`recollect-only` computed inline; see log.)
+
 **Cost vs head-only:** full-model training on-device (more compute/memory + trainable conv/BN),
 a forward-only stat-collection pass per round, and careful lr (eff_lr ~0.001–0.005). Head-only is
 simpler; AdaBN-full is worth it if the extra ~3 pp (esp. on hard sessions) matters.

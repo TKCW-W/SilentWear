@@ -129,5 +129,22 @@ pass; full-model FT adds a modest, real +2.6 pp on top. (`recollect-only` comput
 a forward-only stat-collection pass per round, and careful lr (eff_lr ~0.001–0.005). Head-only is
 simpler; AdaBN-full is worth it if the extra ~3 pp (esp. on hard sessions) matters.
 
+### Optimizer-matched naive baseline (live BN) — the "59%" was an Adam artifact
+`livebn_full_training.py`: the SAME on-device recipe (SGD, batch-1 + n_accum, fixed lr, 40 ep,
+30% data, full model) but **live BN** instead of collected-frozen stats. b1→b2, 3 folds, same grid.
+
+| best config n8/lr3e-4 | balanced acc |
+|---|---|
+| naive live-BN (SGD, matched) | **80.0** |
+| AdaBN frozen | 86.3 |
+| AdaBN recollect | 87.2 |
+
+- The earlier **59%** reference was the *Adam paper* recipe at batch-1 (ablation E3) — an aggressive
+  config that collapses hard. The **optimizer-matched** naive live-BN baseline is **80.0**, not 59.
+  So AdaBN's gain over its *exact* naive counterpart is **80.0 → 87.2 = +7.2 pp** (not +28).
+- At high eff_lr, live-BN is *more robust* than AdaBN-frozen (48–77 vs collapse to 11): live BN keeps
+  re-normalizing each step, while too-high lr destroys the conv under frozen stats. AdaBN wins only in
+  the low-eff-lr regime. (`results/livebn_vs_adabn_S01.csv`)
+
 ## Progress log
 - 2026-07-16: plan written; `adabn_full_training.py` (collect + frozen-stat full train + b1→b2 sweep) built; sweep launching.

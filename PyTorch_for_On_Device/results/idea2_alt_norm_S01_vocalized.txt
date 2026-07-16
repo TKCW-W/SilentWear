@@ -1,0 +1,19 @@
+fold 1 bn: zs=78.9  ft(head)=88.9
+fold 1 gn: zs=73.9  ft(full)=83.9
+fold 1 ln: zs=77.8  ft(full)=87.2
+fold 1 in: zs=58.9  ft(full)=67.8
+fold 2 bn: zs=72.2  ft(head)=85.0
+fold 2 gn: zs=69.4  ft(full)=81.7
+fold 2 ln: zs=68.9  ft(full)=81.7
+fold 2 in: zs=53.3  ft(full)=63.9
+fold 3 bn: zs=81.1  ft(head)=89.4
+fold 3 gn: zs=80.0  ft(full)=74.4
+fold 3 ln: zs=79.4  ft(full)=77.8
+fold 3 in: zs=65.6  ft(full)=66.1
+=== IDEA 2: normalization layers — S01 vocalized, b1->b2, mean+-std over 3 folds ===
+norm   ft_scope          base_zs    after_ondevice_ft
+bn     head       77.41+-4.63       87.78+-2.42
+gn     full       74.44+-5.30       80.00+-4.94
+ln     full       75.37+-5.67       82.22+-4.75
+in     full       59.26+-6.12       65.93+-1.95
+note: all norms trained from scratch with the SAME recipe (only norm differs); BN base_zs here is the in-experiment BN (not the official checkpoint 81.67%).

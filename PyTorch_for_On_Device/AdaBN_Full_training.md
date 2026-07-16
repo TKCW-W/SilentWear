@@ -69,9 +69,34 @@ refs: naive batch-1 full (live BN) = **59** · paper = **87.2** · head-only = *
   86.3→87.2). At high lr the pre-training stats would be badly stale, but those lrs collapse anyway.
 
 ## Phase B — full incremental with the best config (n_accum=8, lr=3e-4)
-Does full-model AdaBN help on the **harder batches** (b3/b5) where head-only underperformed?
-Run the two-pass incremental (`run_inter_session_ft_adabn.py`), 3 folds, all rounds; compare per
-batch to our head-only recipe. _(results below)_
+Two-pass incremental (`run_inter_session_ft_adabn.py`), 3 folds, all rounds. Per round: collect
+BN stats on the batch (adapt) → eval → freeze → full-train on 30%. Eval re-collects stats on the
+eval batch (test-time AdaBN, forward-only).
+
+| batch | no-FT | head-only | **AdaBN-full** | paper |
+|---|---|---|---|---|
+| 1 (no FT) | 72.59 | 72.59 | **82.04** | 72.59 |
+| 2 | 74.63 | 88.52 | 87.96 | 87.22 |
+| 3 | 77.04 | 83.33 | **89.63** | 87.96 |
+| 4 | 77.96 | 85.93 | 88.89 | 90.37 |
+| 5 | 65.56 | 80.93 | **84.63** | 87.41 |
+| **mean b2–5** | | **84.68** | **87.78** | 88.24 |
+
+**Verdict: AdaBN full-model FT unlocks effective batch-1 full training — and across the full session
+it beats head-only (+3.1 pp) and nearly matches the paper (−0.46 pp).** It helps most exactly where
+head-only was weakest: the hard batches b3 (+6.3) and b5 (+3.7), recovering the feature-adaptation
+capacity that head-only lacks.
+
+**Honest caveat (two sources of gain):** the AdaBN eval re-collects BN stats on the eval batch, so
+the advantage over head-only mixes (a) full-model feature adaptation and (b) test-time BN-stat
+adaptation. The batch-1 row isolates (b): base model + test-time AdaBN = 82.0 vs 72.6 pretrained
+(**+9.5 pp with no training at all**). Both are legitimate on-device (forward-only) operations, so
+87.78 is a fair on-device-achievable number — but a clean split needs "head-only + test-time AdaBN"
+and "AdaBN-full without re-collection" (follow-up).
+
+**Cost vs head-only:** full-model training on-device (more compute/memory + trainable conv/BN),
+a forward-only stat-collection pass per round, and careful lr (eff_lr ~0.001–0.005). Head-only is
+simpler; AdaBN-full is worth it if the extra ~3 pp (esp. on hard sessions) matters.
 
 ## Progress log
 - 2026-07-16: plan written; `adabn_full_training.py` (collect + frozen-stat full train + b1→b2 sweep) built; sweep launching.

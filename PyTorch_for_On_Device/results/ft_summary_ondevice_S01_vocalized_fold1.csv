@@ -1,0 +1,6 @@
+subject,condition,base_model,test_session,model_to_fine_tune_name,zero_shot_test_batch,num_prev_ft_rounds,balanced_acc_no_ft,zero_shot_balanced_acc,new_model_name
+S01,vocalized,leave_one_session_out_fold_1.pt,1,leave_one_session_out_fold_1.pt,1,0,73.3333,73.3333,fold_1_ft_1.pt
+S01,vocalized,leave_one_session_out_fold_1.pt,1,fold_1_ft_1.pt,2,1,72.7778,90.0,fold_1_ft_2.pt
+S01,vocalized,leave_one_session_out_fold_1.pt,1,fold_1_ft_2.pt,3,2,86.6667,93.3333,fold_1_ft_3.pt
+S01,vocalized,leave_one_session_out_fold_1.pt,1,fold_1_ft_3.pt,4,3,83.8889,90.0,fold_1_ft_4.pt
+S01,vocalized,leave_one_session_out_fold_1.pt,1,fold_1_ft_4.pt,5,4,64.4444,81.1111,fold_1_ft_5.pt

@@ -1,0 +1,14 @@
+fold 1 done
+fold 2 done
+fold 3 done
+=== IDEA 1: precomputed BN stats — S01 vocalized, b1->b2, mean+-std over 3 folds ===
+variant                     mean    std   per-fold
+zs_pretrained              74.63   6.32   [72.8, 69.4, 81.7]
+zs_adabn_b2                84.81   4.85   [88.9, 79.4, 86.1]
+head_pretrained(lr0.01)    88.52   3.06   [90.0, 85.0, 90.6]
+head_then_adabn_b2         80.37  12.50   [89.4, 66.1, 85.6]
+full_adabn_lr0.003         37.22  22.63   [11.1, 49.4, 51.1]
+full_adabn_lr0.001         86.30   4.10   [87.8, 81.7, 89.4]
+full_adabn_lr0.0003        87.59   3.21   [89.4, 83.9, 89.4]
+full_adabn_lr0.0001        85.74   4.02   [88.3, 81.1, 87.8]
+ref: paper full-model Adam FT b1->b2 (fold-avg) = 87.22%  |  no-FT zero-shot = 74.63%

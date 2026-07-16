@@ -45,10 +45,33 @@ paper? If yes at some (n_accum, lr), full on-device training is viable with a ch
 stat-collection kernel. Then run the full incremental (all rounds, 3 folds) with the best config.
 
 ## Results — b1→b2 (n_accum × lr) sweep, mean±std over 3 folds
-_(to fill: table of ft_frozen and ft_recollect per config; mark best.)_
+Full grid in `results/adabn_sweep_full.csv`. Top configs (by ft_recollect):
+
+| n_accum | lr | eff_lr | ft_frozen | ft_recollect |
+|---|---|---|---|---|
+| **8** | **3e-4** | 0.0024 | 86.3 | **87.2** |
+| 4 | 3e-4 | 0.0012 | 86.1 | 86.1 |
+| 1 | 3e-4 | 0.0003 | 86.1 | 86.1 |
+| 4 | 1e-3 | 0.0040 | 85.0 | 85.7 |
+| 16 | 3e-4 | 0.0048 | 84.1 | 84.3 |
+| … eff_lr ≥ 0.04 | | | 11.1 | 11.1 (collapse) |
+
+refs: naive batch-1 full (live BN) = **59** · paper = **87.2** · head-only = **88.5**
 
 ## Analysis
-_(to fill: best config, does it beat head-only? does re-collection matter (staleness)? verdict.)_
+- **AdaBN unlocks batch-1 full-model FT:** 59% (naive) → **87.2%** (best), matching the paper's
+  full FT exactly. The collect-freeze-train scheme genuinely fixes the batch-1 BN problem.
+- **But it does not beat head-only (88.5)** on b1→b2, and it's costlier (full-model training + a
+  forward-only stat-collection pass).
+- **Best config: n_accum=8, lr=3e-4** (eff_lr ≈ 0.0024). **Very lr-sensitive** — only low effective
+  lr (~0.001–0.005) is stable; eff_lr ≳0.02 destabilizes, ≳0.04 collapses to chance (sum-accum lr coupling).
+- **Staleness is modest at low lr:** re-collecting stats at the final weights gives ~+1 pp (best:
+  86.3→87.2). At high lr the pre-training stats would be badly stale, but those lrs collapse anyway.
+
+## Phase B — full incremental with the best config (n_accum=8, lr=3e-4)
+Does full-model AdaBN help on the **harder batches** (b3/b5) where head-only underperformed?
+Run the two-pass incremental (`run_inter_session_ft_adabn.py`), 3 folds, all rounds; compare per
+batch to our head-only recipe. _(results below)_
 
 ## Progress log
 - 2026-07-16: plan written; `adabn_full_training.py` (collect + frozen-stat full train + b1→b2 sweep) built; sweep launching.

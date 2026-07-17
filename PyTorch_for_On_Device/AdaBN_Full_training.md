@@ -168,5 +168,67 @@ train forward, **running stats frozen at pretrained**, inference with those froz
   zero-shot**. This strengthens AdaBN's value: it rescues a *harmful* naive FT (~70) into +13 over
   zero-shot (87.2), and the rescue is mostly the collected-stats inference the frozen device path lacks.
 
+## Reproduction — how the AdaBN experiment is implemented (PyTorch host)
+
+Model: `SpeechNetNorm(norm='bn', p_dropout=0.0)` (real `BatchNorm2d`) loaded from the fold
+checkpoint. Two PyTorch mechanisms do the work, plus the batch-1 sum-accumulation loop.
+
+**① Collect population BN stats — `collect_bn_stats(model, X)`** (forward-only, label-free)
+```python
+for m in model.modules():
+    if isinstance(m, nn.BatchNorm2d):
+        m.reset_running_stats()      # zero running_mean/var + num_batches_tracked
+        m.momentum = None            # -> cumulative moving average (exact mean over all seen)
+model.train()                        # train-mode BN computes batch stats AND writes running buffers
+with torch.no_grad():
+    model(torch.from_numpy(X))       # ALL M windows in ONE forward -> running = population stats
+model.eval()                         # freeze
+```
+- `momentum=None` → cumulative average, so one forward over all M windows sets `running_mean/var`
+  to the **exact population** μ, σ² over M×H×W per channel.
+- One batched forward on host == the on-device "run each window one at a time, accumulate Σx, Σx²".
+
+**② Freeze stats + full-train — `full_train(model, X, y, lr, n_accum, epochs=40)`**
+```python
+model.eval()                                     # BN uses the FROZEN collected stats, and does NOT update them
+for p in model.parameters(): p.requires_grad = True   # conv + BN gamma,beta + fc all train
+opt = torch.optim.SGD(model.parameters(), lr=lr)      # no momentum, no weight decay
+for _ in range(epochs):
+    perm = rng.permutation(N); opt.zero_grad(); c = 0
+    for j in perm:                               # batch size 1
+        crit(model(Xt[j:j+1]), yt[j:j+1]).backward()   # SUM into .grad
+        c += 1
+        if c % n_accum == 0: opt.step(); opt.zero_grad()   # w <- w - lr * (sum of n_accum grads)
+    if c % n_accum: opt.step(); opt.zero_grad()
+```
+- **Crux: `model.eval()` during training.** eval-mode BN normalizes with the frozen collected running
+  stats (not the single-window batch stats) — this decouples normalization from the batch-1 minibatch.
+- eval mode does **not** stop `γ, β` getting gradients, so the **full model** (conv + BN affine + fc)
+  still trains; only the *statistics* are frozen. Backward = frozen-stat gradient `γ/√(σ²+ε)·dL/dy`.
+- **Batch-1 + SUM n_accum:** one window per fwd/bwd, `.grad` accumulates, `opt.step()` every n_accum
+  applies `w ← w − lr·Σgrad` (no ÷n_accum).
+
+**Eval — `balanced_accuracy` (`ondevice_ft.py`):** `model.eval()` (frozen running stats), argmax per
+window, mean per-class recall over the 9 classes on the 180-window batch.
+
+**Incremental two-pass — `run_inter_session_ft_adabn.py`:** per round on batch b —
+(1) `collect_bn_stats(m, Xb)` at current weights → (2) eval on batch b → (3) if b<5: `full_train` on
+30 % of batch b; carry the model forward. `no_ft` = base model with pretrained stats.
+
+**On-device mapping.** collect = forward-only kernel accumulating per-channel Σx, Σx² → μ, σ² fed as
+BN inputs; freeze+train = the frozen-stat BN training kernel (`BN_FROZEN_STATS`) with those μ, σ² as
+fixed inputs, conv/affine/fc via SGD batch-1 + n_accum; inference = BN uses the collected μ, σ².
+
+**Run.**
+```bash
+python3 adabn_full_training.py 8:0.0003 4:0.001 ... --out adabn_sweep.csv   # b1->b2 (n_accum,lr) sweep
+python3 run_inter_session_ft_adabn.py            # full 3-fold incremental at best config (n8, lr3e-4)
+python3 adabn_disambiguation.py                  # 2x2 controls (train scope x eval-stat handling)
+python3 livebn_full_training.py 8:0.0003 ...     # naive live-BN baseline (see the correction above)
+```
+Files: `adabn_full_training.py` (collect + frozen full-train + sweep), `run_inter_session_ft_adabn.py`
+(incremental), `adabn_disambiguation.py`, `livebn_full_training.py`; model `idea2_alt_norm.SpeechNetNorm`;
+data `windowing.py`; eval `ondevice_ft.balanced_accuracy`. All single-threaded (`torch.set_num_threads(1)`).
+
 ## Progress log
 - 2026-07-16: plan written; `adabn_full_training.py` (collect + frozen-stat full train + b1→b2 sweep) built; sweep launching.

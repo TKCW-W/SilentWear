@@ -230,5 +230,51 @@ Files: `adabn_full_training.py` (collect + frozen full-train + sweep), `run_inte
 (incremental), `adabn_disambiguation.py`, `livebn_full_training.py`; model `idea2_alt_norm.SpeechNetNorm`;
 data `windowing.py`; eval `ondevice_ft.balanced_accuracy`. All single-threaded (`torch.set_num_threads(1)`).
 
+## On-device deployment (Siracusa / Deeploy) — what it takes
+
+### Pipeline (per FT round on a batch)
+```
+1. COLLECT    forward-only over all batch windows -> accumulate per-channel Sx, Sx^2 at each BN
+              input -> mu = Sx/M, var = Sx^2/M - mu^2 -> write to the BN stat buffers
+2. TRAIN      full-model SGD (batch-1 + n_accum sum), BN normalizes with the FROZEN collected
+              mu,var (frozen-stat kernel); update conv + BN gamma,beta + fc; dump weights
+3. RE-COLLECT (optional) redo step 1 at the final weights -> deploy-time stats
+4. INFER      forward-only with the collected mu,var + trained weights
+```
+
+### Already exists (reusable)
+- **Frozen-stat BN kernel** — `TargetLibraries/PULPOpen/src/BatchNorm.c` (`BN_FROZEN_STATS` /
+  `g_bn_frozen_stats`): forward normalizes with passed mean/var, backward `dX = γ·inv_std·dY`.
+  Exactly step 2 — it just needs the **collected** stats instead of the pretrained ones.
+- Full-model batch-1 on-device training (the `fullfrozen` work), SGD + n_accum sum accumulation,
+  weight dump (WDUMP), tiling.
+
+### New to build (ranked)
+1. **BN-stat collection kernel/pass** — forward the M windows and accumulate per-channel `Sx`, `Sx²`
+   at each BN input, then compute `μ, σ²`. (Must accumulate sums — averaging the per-window variances
+   the BN-train kernel produces is wrong; it drops the between-window variance.) Tiny buffers.
+2. **Expose BN `mean`/`var` as graph INPUTS** (not baked initializers) — the "pass stats as ONNX
+   inputs" change in Onnx4Deeploy, so the collect pass writes them and the train/infer graphs read
+   them at runtime (avoids host-side graph regen between passes).
+3. **Orchestration** — wire collect → train → re-collect → infer and route the μ,σ² buffers.
+
+Not needed: no BN folding, no new optimizer, no new backward math.
+
+### Two deployment tiers (our attribution says start cheap)
+Because recollect-only (85.2, no training) already beats head-only FT (84.68), and full training adds
+only ~+2.6:
+
+| tier | on-device work | accuracy |
+|---|---|---|
+| **AdaBN-inference only** (collect + infer, NO training) | pieces #1 + #2 (forward-only stat kernel + BN-stats-as-inputs). No backprop/optimizer/WDUMP. | ~85% |
+| **Full AdaBN training** (collect + full-model FT) | + full-model batch-1 backprop (more L2/compute) | ~87–88% |
+
+**Recommendation: build the AdaBN-*inference* tier first** — dramatically cheaper (forward-only), gets
+most of the win; the training tier is a modest +2.6 pp for the full backprop machinery.
+
+### Validation
+Bit-exactness host↔GVSoC for collect+infer (stat sums + frozen-stat forward are deterministic); if
+pursuing training, verify device loss ≡ ORT and dumped weights ≡ host, as done for the head-only deploy.
+
 ## Progress log
 - 2026-07-16: plan written; `adabn_full_training.py` (collect + frozen-stat full train + b1→b2 sweep) built; sweep launching.

@@ -146,5 +146,27 @@ simpler; AdaBN-full is worth it if the extra ~3 pp (esp. on hard sessions) matte
   re-normalizing each step, while too-high lr destroys the conv under frozen stats. AdaBN wins only in
   the low-eff-lr regime. (`results/livebn_vs_adabn_S01.csv`)
 
+**CORRECTION — the 80% live-BN above is NOT the on-device case.** That host sim used PyTorch default
+BN in train mode, which *updates* the running stats (EMA) and evals with them — a free domain
+adaptation the device never does (the on-device BN training kernel leaves running stats frozen at
+pretrained; inference uses those). The **faithful device baseline** = per-window batch-1 stats in the
+train forward, **running stats frozen at pretrained**, inference with those frozen pretrained stats
+(BN `momentum=0`):
+
+| b1→b2, 3-fold | balanced acc |
+|---|---|
+| base, no FT (zero-shot) | 74.6 |
+| **device-live-BN (faithful)** | **~70** (folds 58–82; e.g. n1/3e-4=71.5, n8/3e-4=69.6) |
+| AdaBN (collected stats) | 87.2 |
+
+- Faithful naive on-device full FT lands **below zero-shot** — the conv is trained against per-window
+  normalization but deployed with frozen pretrained stats (train/inference mismatch, no adaptation).
+  As lr→0 it approaches 74.6 (= base); any real training only degrades it. **Naive full-model on-device
+  FT cannot beat zero-shot.**
+- So there were two *flawed* naive references: **59%** (wrong optimizer — Adam) and **80%** (wrong BN
+  semantics — EMA-adapted eval). The correct faithful on-device naive baseline is **~70%, below
+  zero-shot**. This strengthens AdaBN's value: it rescues a *harmful* naive FT (~70) into +13 over
+  zero-shot (87.2), and the rescue is mostly the collected-stats inference the frozen device path lacks.
+
 ## Progress log
 - 2026-07-16: plan written; `adabn_full_training.py` (collect + frozen-stat full train + b1→b2 sweep) built; sweep launching.

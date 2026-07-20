@@ -74,3 +74,36 @@ batches (3, 5) it adapts less than full-model FT, as expected from a last-layer-
   variance (see the on-device report). For robust comparison, sweep ≥10 seeds (`--seed`).
 - Batch-2 here is 90.56 % vs the on-device fixture's 89.44 %; the ~1 pp gap is the exact 54-window
   draw/order differing from the exporter fixture — both within draw noise.
+
+## Why our numbers can differ from the paper (base-model training variance)
+
+We fine-tune from the base checkpoints in `artifacts/models/inter_session_ft/.../leave_one_session_out_fold_*.pt`.
+These are **not** the same weights as the `inter_session/` checkpoints, even though both are pretrained
+on the same sessions (1 & 2, leave-session-3-out), with the **same architecture, hyperparameters, and
+seed (42)**. They are two **independent training runs** and end up with **completely different weights**
+(mean relative weight difference ≈ 50×; e.g. batch-3-fold-3 zero-shot 78.33 % for `inter_session` vs
+81.67 % for `inter_session_ft`). Concretely, they even trained for **different numbers of steps**
+(`num_batches_tracked` = 2385 vs 1395).
+
+Why two "identical-config" runs diverge:
+1. **A fixed seed does not make training bit-deterministic.** Full reproducibility also needs
+   `torch.use_deterministic_algorithms(True)`, deterministic cuDNN, fixed DataLoader worker/shuffle
+   order, and identical hardware + library versions. Without those, nondeterministic GPU reductions
+   (atomic-add in conv/BN backward), data-order, and un-pinned RNG streams make each run drift.
+2. **Early stopping locks in the drift.** Training is chaotic — a ~1e-7 gradient difference amplifies
+   over epochs — so the two runs hit the early-stopping criterion at **different epochs**, train for
+   different durations, and land in different regions of weight space.
+3. **The model is over-parameterized.** Many weight configurations reach similar accuracy, so
+   "different weights, similar performance" is normal; the base models differ by a few pp of zero-shot,
+   which is ordinary run-to-run training variance, not an error.
+
+**Implications for comparing to the paper:**
+- Our reproduction uses `inter_session_ft` (the checkpoints the paper's `ft_summary.csv` actually
+  scores), and our `no_ft` (base, un-fine-tuned) column matches the paper's `balanced_acc_no_ft`
+  **exactly** — that is the validation that our windowing/eval pipeline is faithful.
+- Small gaps in the **fine-tuned** column vs the paper can come from (a) this base-model training
+  variance if a different checkpoint were used, and (b) our single seed-42 draw of the 30 % FT subset
+  (≈ ±1.75 pp; use `--seed` to average). Neither indicates a pipeline bug.
+- Note: our host BatchNorm sim uses default (non-deterministic-agnostic) settings; results here are
+  reported as mean ± std over the 3 folds, and the between-*subject* spread is larger still
+  (S01 is the easiest subject — see the ablation/attribution docs).

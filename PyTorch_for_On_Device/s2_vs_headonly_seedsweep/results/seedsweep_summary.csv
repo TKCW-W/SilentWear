@@ -1,0 +1,4 @@
+recipe,mean,std,min,max,s2_wins
+head_only,85.54,0.81,84.03,86.44,
+s2_frozenstat_full,84.76,0.7,83.56,85.88,
+paired_diff_s2_minus_head,-0.78,0.81,-1.81,0.47,2/10

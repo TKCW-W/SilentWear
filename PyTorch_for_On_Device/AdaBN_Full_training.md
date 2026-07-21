@@ -11,10 +11,25 @@ them, and train with those.
 
 ## Is AdaBN legitimate vs what the paper does?
 
-The paper uses standard training-mode BN: every step it (a) normalizes with the current
-mini-batch's statistics and (b) EMA-updates a *persistent running buffer* that then serves at
-inference. AdaBN differs on three axes; all three are legitimate, and two are strictly *more*
-correct:
+**What the paper actually does (important — it does NOT use frozen stats).** The paper fine-tunes
+with standard training-mode BN **on GPU with batch size 32**: every step it (a) normalizes with the
+current batch-32 statistics and (b) **EMA-updates the running buffer**. So over fine-tuning on the
+new session's batches, its running stats are **adapted away from the session-1+2 pretrained values
+toward the new session** (from batches 1…b−1, using *real* batch-32 statistics). The paper's
+`zero_shot(b)` = full-FT weights **+ running stats EMA-adapted to the new session**. So the paper's
+own gain already includes BN-stat adaptation — it is *not* a frozen-stat number.
+
+**Why this needs GPU / batch-32, and why it's unavailable on-device.** The paper's EMA adaptation is
+only meaningful because each training step sees a *real batch* whose statistics ≈ population. At the
+on-device forced **batch 1**, each step's "batch statistic" is one degenerate window, so EMA-adapting
+during training **corrupts** the running stats (we measured this — it collapses). So the paper's
+mechanism (live EMA adaptation during FT) **cannot run on-device**. **AdaBN is the on-device-compatible
+way to achieve the same goal** — adapt the BN stats to the new session — via a decoupled forward-only
+collect pass instead of an in-training EMA. It is therefore *not* "a step the paper doesn't do"; the
+paper adapts stats too (via EMA + batch-32), AdaBN adapts stats via one-shot population collect.
+
+Given that, AdaBN differs from the paper's stat adaptation on three axes; all legitimate, two strictly
+*more* correct:
 
 1. **Collect at fixed weights (not while weights update) — legit, arguably more correct.** BN's
    running stats are meant to estimate the activation statistics seen *at inference*, where the
@@ -67,8 +82,11 @@ for b in 1..5:
   batch is evaluated** (step A precedes step B). So `zs(3)` uses **batch-3 stats**, not batch-2's.
 - **This is transductive / test-time adaptation:** scoring batch b uses batch b's *unlabeled* inputs
   (to set the stats) before scoring it. Legitimate as a deployment scenario (the incoming batch's raw
-  EMG is available before labels), but a **stronger setting than the paper's pure zero-shot**, which
-  never looks at batch b when scoring batch b. Report the number as "test-time-adapted", not "zero-shot".
+  EMG is available before labels). Note the paper *also* adapts its BN stats to the new session — but
+  from batches 1…b−1 (via EMA on batch-32), **not** from batch b itself. So the only residual
+  difference is the adaptation *source* (current batch b vs prior batches 1…b−1, same held-out
+  session) — a mild transductive edge, not a categorically different setting. Report AdaBN's number
+  as "test-time-adapted" for precision.
 
 **Results — S01 vocalized, 3 folds, config n_accum=8, lr=3e-4** (`results/ft_summary_adabn_full_...csv`):
 
@@ -80,8 +98,12 @@ for b in 1..5:
 | 5 | 65.56 | 84.63 |
 | **mean b2–5** | **73.80** | **87.78** |
 
-vs head-only 84.68, vs paper full-FT 88.24. **Attribution (see below): of the +14 pp over base,
-≈+11 pp is the BN-stat recollection (label-free, no training) and only ≈+2.6 pp is the fine-tuning.**
+vs head-only 84.68, vs paper full-FT 88.24. **Attribution (see below): of AdaBN's +14 pp over the
+frozen-pretrained base, ≈+11 pp is the BN-stat adaptation (label-free) and only ≈+2.6 pp is the
+weight fine-tuning.** This is a decomposition of *AdaBN* — not a claim that the paper omits stat
+adaptation: the paper's gain is *also* substantially stat adaptation (its EMA on batch-32), so
+"most of the gain is adapting the BN statistics" is true for **both** approaches. Both land ~88;
+the paper does it with GPU batch-32 EMA, AdaBN with an on-device-legal one-shot collect.
 
 ## Procedure (two passes per FT round — hence a new incremental runner)
 For each fine-tuning round on a batch:

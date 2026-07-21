@@ -9,6 +9,80 @@ pretrained stats (train/inference mismatch). **AdaBN** fixes the normalization w
 real batch: collect population stats over many samples in a separate forward-only pass, freeze
 them, and train with those.
 
+## Is AdaBN legitimate vs what the paper does?
+
+The paper uses standard training-mode BN: every step it (a) normalizes with the current
+mini-batch's statistics and (b) EMA-updates a *persistent running buffer* that then serves at
+inference. AdaBN differs on three axes; all three are legitimate, and two are strictly *more*
+correct:
+
+1. **Collect at fixed weights (not while weights update) — legit, arguably more correct.** BN's
+   running stats are meant to estimate the activation statistics seen *at inference*, where the
+   weights are fixed. Computing them at fixed weights over the target data is exactly that. This is
+   the published **AdaBN** domain-adaptation method (Li et al. 2016): freeze weights, recompute BN
+   stats on the target domain. The paper's EMA-during-training is the *approximation* (it only ≈ the
+   fixed-weight stats because near convergence the weights barely move). Caveat: in our *full*
+   variant we collect at the pre-training weights then train, so the stats go slightly stale — fixed
+   by re-collecting at the final weights before eval.
+2. **Exact population stats (sum) instead of an EMA — legit, more accurate.** `μ=Σx/M`,
+   `σ²=Σx²/M−μ²` is the unbiased population statistic the EMA is trying to approximate; PyTorch's
+   `momentum=None` (our `collect_bn_stats`) computes exactly this. For **variance** especially, the
+   EMA of per-batch variances *underestimates* the true variance — the population form is correct.
+3. **One collection "pass" = one forward-only sweep (M forward passes, e.g. ≤180, sub-samplable).**
+   Not a single forward — but forward-only and done *once*, ≈ 4 % of the training compute (vs
+   40 epochs × forward+backward). **Why the paper can't do this and uses an EMA instead:** exact
+   stats cost *one full pass per weight state*; training has thousands of weight states (one per
+   step) → prohibitive, so BN piggybacks the free mini-batch stat into an EMA. AdaBN **freezes the
+   weights**, collapsing "thousands of weight states" to one, so a single exact pass suffices.
+
+**The deployment-model point (why AdaBN fits on-device but the paper's EMA does not):** the paper
+needs BN stats that are *written every step, persist across steps, and are carried into a separate
+inference graph* — a second evolving state on top of the gradient-updated weights, which the static,
+gradient-only Deeploy pipeline has no mechanism for. AdaBN computes the stats **once and freezes
+them** (write-once, read-many = a static tensor / graph input), reusing only the one evolving-state
+path (weights) that already works.
+
+**Open risk (not yet stress-tested):** the pretrained stats come from sessions 1+2 (thousands of
+samples, very stable); AdaBN recollects from ≤180 samples of one batch — a smaller, outlier-sensitive
+estimate. Since EMG is unnormalized (running_var in the thousands), a single artifact window could
+inflate a channel's variance and over-squash its features. Our recollect results do show higher
+cross-fold variance, consistent with this. Mitigations to try: robust stats (trimmed/median),
+blending `α·collected + (1−α)·pretrained`, or a larger/cleaner sample.
+
+## Decided incremental fine-tuning flow (AdaBN) — and results
+
+**Flow (per held-out session, batches b = 1…5; weights carry forward, BN stats recollected per batch):**
+
+```
+m ← pretrained base (leave_one_session_out_fold_k.pt)
+for b in 1..5:
+    (A) collect BN stats on batch b        # forward-only over batch-b windows -> population μ,σ²
+    (B) zs(b) = evaluate m on batch b       # reported number (batch-b weights-so-far + batch-b stats)
+    (C) if b<5: full-train m on 30% of batch b (BN frozen at the batch-b stats)  # weights carry to b+1
+```
+
+- **Weights are incremental** (batch 3 is scored with weights fine-tuned on batches 1&2) — matches
+  the paper's incremental protocol.
+- **BN stats are NOT incremental** — they are wiped and recollected on **each batch right before that
+  batch is evaluated** (step A precedes step B). So `zs(3)` uses **batch-3 stats**, not batch-2's.
+- **This is transductive / test-time adaptation:** scoring batch b uses batch b's *unlabeled* inputs
+  (to set the stats) before scoring it. Legitimate as a deployment scenario (the incoming batch's raw
+  EMG is available before labels), but a **stronger setting than the paper's pure zero-shot**, which
+  never looks at batch b when scoring batch b. Report the number as "test-time-adapted", not "zero-shot".
+
+**Results — S01 vocalized, 3 folds, config n_accum=8, lr=3e-4** (`results/ft_summary_adabn_full_...csv`):
+
+| batch | base (no-FT) | AdaBN-full |
+|---|---|---|
+| 2 | 74.63 | 87.96 |
+| 3 | 77.04 | 89.63 |
+| 4 | 77.96 | 88.89 |
+| 5 | 65.56 | 84.63 |
+| **mean b2–5** | **73.80** | **87.78** |
+
+vs head-only 84.68, vs paper full-FT 88.24. **Attribution (see below): of the +14 pp over base,
+≈+11 pp is the BN-stat recollection (label-free, no training) and only ≈+2.6 pp is the fine-tuning.**
+
 ## Procedure (two passes per FT round — hence a new incremental runner)
 For each fine-tuning round on a batch:
 1. **Collect (forward-only, label-free):** run all of the batch's windows one at a time,

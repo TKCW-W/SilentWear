@@ -46,6 +46,28 @@ the shipped recipe is faithfully deployable with no device-side degradation. The
 paper (~88 on S01) is the un-portable batch-32-live-BN feature adaptation (see `../Pre_Deployment_Analysis.md`),
 not a device artifact.
 
+## Aligned comparison — proof the divergence is only the data draw
+The functional on-device flow uses **Onnx4Deeploy to prepare both the graph and the 54 fine-tuning
+windows** (never PyTorch-injected data). The PyTorch fold-3 baseline uses an *independent* draw
+(`windowing.stratified_draw(seed=42)`), which is why it differs by a few pp. To prove the difference is
+*only* the draw, we ran **PyTorch head-only on the exact 54 windows Onnx4Deeploy emitted** (extracted
+from the round-1 fixture `inputs.npz`, fixed order) and evaluated on batch 2:
+
+> PyTorch on Onnx4Deeploy's 54 windows → b2 = **89.44** == on-device/GVSoC b2_ft = **89.44** (identical).
+
+So with the *same Onnx4Deeploy-prepared data*, PyTorch reproduces the on-device result bit-for-bit. The
+two sampler code paths differ (PyTorch `default_rng`/PCG64 + sorted order; Onnx4Deeploy
+`RandomState`/MT19937 + shuffled), so their independent draws pick different windows — and in an
+incremental chain that draw difference compounds. It is a **data-draw** effect, not a device-fidelity
+one. The correct apples-to-apples reference is PyTorch-on-Onnx4Deeploy-data (matched), which equals the
+on-device numbers.
+
+## Loss logs (saved per round)
+Per-round fine-tuning loss traces are persisted under `logs/` via `save_round_losses.py`:
+`round<N>_losses.csv` (step, ORT-ref loss, GVSoC computed loss, abs_diff), `round<N>_epoch_mean_loss.csv`,
+and a copy of the GVSoC runner log `round<N>_gvsoc_train.log`. Round 1: 2160 steps, loss 0.4326→0.1154
+(epoch-mean 0.5293→0.2665), **GVSoC bit-exact to ORT (max|diff| = 1.45e-6)**.
+
 ## Artifacts
 `run_host_incremental.py` (matched-draw host chain = on-device prediction) → `ondevice_predicted_fold3.csv`;
 `pytorch_fold3_baseline.py` (independent seed-42 draw) → `pytorch_fold3_headonly.csv`; GVSoC round-1

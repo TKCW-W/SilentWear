@@ -39,6 +39,23 @@ unchanged, move only fc). So it should do **at least as well**. Yet head-only is
 4. **Optimization stability.** A linear head on fixed features is a near-convex, well-conditioned problem;
    batch-1 SGD backpropagated through the whole net is much noisier.
 
+## The learning rate: symptom, not fixable cause
+- **lr:** head-only **0.01** (eff-step ~0.04 with n_accum 4); full-model frozen-stat **3e-4** (eff_lr
+  0.0012) — ~33× lower.
+- The low full-model lr is **optimal, not under-tuned.** The frozen-stat sweep shows higher lr is
+  strictly worse: 3e-4 → 86.67, 1e-3 → 82–84, eff_lr ≳0.02 → collapses toward chance (11 %). So you
+  **cannot** close the gap by raising the lr — it would hurt.
+- So the low lr is a **symptom of the instability** in reasons 1–2, not an independent cause: full-model
+  backprops through the whole net at batch-1 with frozen stats (noisy gradients + activation↔stat
+  mismatch) → fragile landscape → forced to tiny steps. Head-only trains only `fc` (linear on fixed
+  features) → well-conditioned → tolerates lr 0.01. So "the lr is low" and "it overfits / breaks the
+  stat consistency" are the *same* story: the fragility both limits accuracy and forces the small lr.
+
+## The gap is small (they essentially tie)
+Full-model frozen-stat does not *dramatically* lose — head-only 85.54 ± 0.81 vs full 84.76 ± 0.70
+(10-seed, paired −0.78, full wins 2/10). So "full-model doesn't beat head-only" = "they tie, head-only
+marginally ahead and far simpler," not a collapse.
+
 ## This is a known phenomenon
 "Fine-Tuning can Distort Pretrained Features and Underperform Out-of-Distribution" (Kumar et al., ICLR
 2022): under **distribution shift + limited target data**, full fine-tuning distorts good pretrained

@@ -1,5 +1,10 @@
 # On-device simulation results — head-only incremental FT, S01 vocalized fold 3 (b1→b5)
 
+> **Canonical copy:** these results are also stored (as the on-device experiment record) in the
+> TrainDeeploy repo at `DeeployTest/experiments/speechnet_ondevice_incremental_fold3/`. The scripts here
+> are the live/runnable versions (they import the SilentWear PyTorch helpers and run in `agitated_hugle`).
+
+
 **Date:** 2026-07-23
 **Purpose:** Report the on-device (Siracusa/GVSoC) head-only incremental fine-tuning accuracy for S01
 vocalized fold 3, b1→b5, and compare to the PyTorch simulation. Method + reproducibility in

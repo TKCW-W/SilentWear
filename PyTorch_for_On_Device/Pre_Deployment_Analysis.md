@@ -185,6 +185,33 @@ masking (no graph change), so an adaptive "if accuracy low, unfreeze last block"
 (Methodological note: S01's +1.53 and S03's +1.85 single-seed "wins" both washed out under 10 seeds — only
 S02's survived. Always multi-seed before concluding.)
 
+## 4-subject per-batch comparison (incl. exp13 K=1 and the paper)
+Per batch, **averaged across 4 subjects (S01–S04) × 3 folds**, streaming b1→b5, seed 42 (the same draw
+used for the other per-batch comparisons). This is the across-subjects companion to the S01-only table
+above, with last-block+fc (K=1) and the paper added:
+
+| batch | no-FT | head-only | streaming AdaBN | last-block+fc (K=1) | paper |
+|---|---|---|---|---|---|
+| b2 | 72.73 | 77.55 | 77.08 | 79.44 | 78.43 |
+| b3 | 70.23 | 76.85 | 75.88 | 77.82 | 79.54 |
+| b4 | 70.79 | 76.44 | 77.36 | 80.00 | 82.31 |
+| b5 | 68.10 | 76.48 | 75.83 | 79.26 | 79.81 |
+| **mean b2–5** | **70.46** | **76.83** | **76.54** | **79.13** | **80.02** |
+
+**K=1 multi-seed (10 draws/subj) mean b2–5 = 78.90** — essentially identical to the seed-42 79.13
+(averaging over 12 subject×fold draws cancels most draw noise; the strong seed-sensitivity was a
+single-subject S01 artifact). Per-subject K1−K0 (10 seeds): **S02 +4.50 (robust), S01 +0.20, S03 +0.36,
+S04 +0.25**.
+
+**Reading:** K=1 ≈ 79.1 beats head-only (76.83) by ~+2.3 pp and nearly matches the paper (80.02) — the
+best on-device mean of any recipe. But it **weakly dominates**: K=1 ≥ head-only on all subjects, yet the
+gain is *robust only on S02*; on S01/S03/S04 it is within noise. So the average gain (and the closure to
+the paper) is **S02-concentrated**. Deployment: head-only stays the simplest safe default; **K=1 is a
+strong optional upgrade / adaptive fallback** (never hurts, big only where head-only struggles), cheaply
+realizable via grad-buffer masking. Source: `exp13_progressive_unfreeze/results/perbatch_4subj_seed42.csv`,
+`multiseed_k1_S01.csv`, `multiseed_othersubj.csv`; settings aggregated from `exp5`/`exp7`,
+paper from `exp5_streaming_adabn_incremental/results/streaming_per_batch_4subj.csv`.
+
 ## Source files
 Setting 1: `exp7_headonly_4subj/results/headonly_S01.csv`, `s2_vs_headonly_seedsweep/`. Setting 2:
 `exp5_streaming_adabn_incremental/results/streaming_incr_S01.csv`. Settings 1/3/5 per-batch:

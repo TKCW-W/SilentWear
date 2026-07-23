@@ -190,18 +190,18 @@ Per batch, **averaged across 4 subjects (S01–S04) × 3 folds**, streaming b1�
 used for the other per-batch comparisons). This is the across-subjects companion to the S01-only table
 above, with last-block+fc (K=1) and the paper added:
 
-| batch | no-FT | head-only | streaming AdaBN | last-block+fc (K=1) | paper |
-|---|---|---|---|---|---|
-| b2 | 72.73 | 77.55 | 77.08 | 79.44 | 78.43 |
-| b3 | 70.23 | 76.85 | 75.88 | 77.82 | 79.54 |
-| b4 | 70.79 | 76.44 | 77.36 | 80.00 | 82.31 |
-| b5 | 68.10 | 76.48 | 75.83 | 79.26 | 79.81 |
-| **mean b2–5** | **70.46** | **76.83** | **76.54** | **79.13** | **80.02** |
+| batch | no-FT | head-only | streaming AdaBN | K=1 (seed 42) | K=1 (multi-seed) | paper |
+|---|---|---|---|---|---|---|
+| b2 | 72.73 | 77.55 | 77.08 | 79.44 | — | 78.43 |
+| b3 | 70.23 | 76.85 | 75.88 | 77.82 | — | 79.54 |
+| b4 | 70.79 | 76.44 | 77.36 | 80.00 | — | 82.31 |
+| b5 | 68.10 | 76.48 | 75.83 | 79.26 | — | 79.81 |
+| **mean b2–5** | **70.46** | **76.83** | **76.54** | **79.13** | **78.90** | **80.02** |
 
-**K=1 multi-seed (10 draws/subj) mean b2–5 = 78.90** — essentially identical to the seed-42 79.13
-(averaging over 12 subject×fold draws cancels most draw noise; the strong seed-sensitivity was a
-single-subject S01 artifact). Per-subject K1−K0 (10 seeds): **S02 +4.50 (robust), S01 +0.20, S03 +0.36,
-S04 +0.25**.
+(K=1 multi-seed = 10 draw-seeds/subject; per-batch cells "—" not computed, only the mean b2–5 which is
+what governs the reliability read. It is essentially identical to the seed-42 79.13 — averaging over 12
+subject×fold draws cancels most draw noise; the strong seed-sensitivity was a single-subject S01
+artifact.) Per-subject K1−K0 (10 seeds): **S02 +4.50 (robust), S01 +0.20, S03 +0.36, S04 +0.25**.
 
 **Reading:** K=1 ≈ 79.1 beats head-only (76.83) by ~+2.3 pp and nearly matches the paper (80.02) — the
 best on-device mean of any recipe. But it **weakly dominates**: K=1 ≥ head-only on all subjects, yet the

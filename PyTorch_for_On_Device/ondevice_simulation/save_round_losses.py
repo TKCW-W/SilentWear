@@ -37,7 +37,9 @@ def main():
 
     dev = None
     if a.gvsoc_log and os.path.exists(a.gvsoc_log):
-        shutil.copy(a.gvsoc_log, os.path.join(LOGDIR, f"round{a.round}_gvsoc_train.log"))
+        dst = os.path.join(LOGDIR, f"round{a.round}_gvsoc_train.log")
+        if os.path.abspath(a.gvsoc_log) != os.path.abspath(dst):
+            shutil.copy(a.gvsoc_log, dst)
         pat = re.compile(r"\[loss\s+(\d+)\]\s+computed=([-\d.eE]+)\s+ref=([-\d.eE]+)")
         got = {}
         for line in open(a.gvsoc_log):

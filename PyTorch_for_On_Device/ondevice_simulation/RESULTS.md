@@ -7,14 +7,21 @@ vocalized fold 3, b1→b5, and compare to the PyTorch simulation. Method + repro
 
 ## Headline table — balanced accuracy (%)
 
-| batch | note | **on-device** | PyTorch fold-3 (seed-42 draw) | source of on-device number |
+| batch | note | **on-device (GVSoC)** | PyTorch fold-3 (seed-42 draw) | on-device fidelity |
 |---|---|---|---|---|
-| 1 | zero-shot | **80.56** | 80.56 | GVSoC-confirmed (`b1_zs`, prior committed run) |
-| 2 | FT on b1 | **89.44** | 90.56 | GVSoC-confirmed (`b2_ft`, prior committed run) = host-chain 89.44 |
-| 3 | FT on b1–2 | **80.00** | 80.56 | bit-exact host chain (matched draw) |
-| 4 | FT on b1–3 | **83.89** | 88.89 | bit-exact host chain (matched draw) |
-| 5 | FT on b1–4 | **82.22** | 81.67 | bit-exact host chain (matched draw) |
+| 1 | zero-shot | **80.56** | 80.56 | GVSoC inference bit-exact |
+| 2 | FT on b1 | **89.44** | 90.56 | round-1 GVSoC train bit-exact (max\|Δ\| 1.5e-6) |
+| 3 | FT on b1–2 | **80.00** | 80.56 | round-2 GVSoC train bit-exact (max\|Δ\| 1.2e-6) |
+| 4 | FT on b1–3 | **83.89** | 88.89 | round-3 GVSoC train bit-exact (max\|Δ\| 2.9e-6) |
+| 5 | FT on b1–4 | **82.22** | 81.67 | round-4 GVSoC train bit-exact (max\|Δ\| 2.3e-6) |
 | **mean b2–5** | | **83.89** | 85.42 | |
+
+**All five batches are now real-GVSoC** (not host-predicted): each incremental round (FT on b1→b4) was
+trained end-to-end on the Siracusa GVSoC simulator via the functional Onnx4Deeploy→Deeploy pipeline, its
+device fc extracted (every round `device fc == ORT < 1e-6`) and carried forward. Every round passed
+`Errors: 0 / 2160` with per-step loss bit-exact to ORT, and every per-batch accuracy equals the
+matched-draw host chain exactly (b2 89.44, b3 80.00, b4 83.89, b5 82.22). Loss traces persisted in
+`logs/round{1..4}_losses.csv`.
 
 ## Why the on-device numbers are trustworthy (fidelity chain)
 1. **On-device head-only training is bit-exact to the host ORT reference** — the round-1 GVSoC run has

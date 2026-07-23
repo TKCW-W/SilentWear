@@ -69,6 +69,28 @@ incremental chain that draw difference compounds. It is a **data-draw** effect, 
 one. The correct apples-to-apples reference is PyTorch-on-Onnx4Deeploy-data (matched), which equals the
 on-device numbers.
 
+## PyTorch chain on the SAME on-device data (bit-exactness cross-check)
+Running the PyTorch head-only chain on the exact 54-window draws Onnx4Deeploy prepared for each round
+(extracted from each fixture's `inputs.npz`, fixture order, fc carried) — `run_pytorch_ondevicedata_chain.py`:
+
+| batch | PyTorch (on-device data) | on-device (GVSoC) | match |
+|---|---|---|---|
+| b1 zero-shot | 80.56 | 80.56 | ✓ |
+| b2 | 89.44 | 89.44 | ✓ |
+| b3 | 80.56 | 80.00 | +0.56 (1 window) |
+| b4 | 83.89 | 83.89 | ✓ |
+| b5 | 82.22 | 82.22 | ✓ |
+
+With the *same* data, PyTorch reproduces the on-device chain on **4/5 batches exactly** (vs up to 5 pp
+apart under the independent seed-42 draw). Two levels of fidelity:
+1. **Bit-exact (weights):** on-device GVSoC == the export's **ORT reference** every round — `loss
+   diff = 0.000000`, `device fc == ORT < 1e-6` (all 4 rounds, see `logs/round{1..4}_losses.csv`). This is
+   the rigorous proof the deployment path reproduces the simulation.
+2. **Accuracy (independent loop):** the from-scratch PyTorch `finetune_head` chain matches 4/5 batches;
+   the single b3 discrepancy is **1 window / 180 (0.56%)** flipping at a decision boundary because
+   `finetune_head` (PyTorch autograd SGD) and ORT training land on bit-close-but-not-identical fc — NOT a
+   GVSoC error (it is non-accumulating: b4/b5 recover exact match). Artifact: `pytorch_ondevicedata_vs_gvsoc.csv`.
+
 ## Loss logs (saved per round)
 Per-round fine-tuning loss traces are persisted under `logs/` via `save_round_losses.py`:
 `round<N>_losses.csv` (step, ORT-ref loss, GVSoC computed loss, abs_diff), `round<N>_epoch_mean_loss.csv`,

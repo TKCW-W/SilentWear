@@ -1,7 +1,7 @@
 # On-device simulation results — head-only incremental FT, S01 vocalized fold 3 (b1→b5)
 
 > **Canonical copy:** these results are also stored (as the on-device experiment record) in the
-> TrainDeeploy repo at `DeeployTest/experiments/speechnet_ondevice_incremental_fold3/`. The scripts here
+> TrainDeeploy repo at `DeeployTest/experiments/speechnet_ondevice_incremental_fold3_headonly/`. The scripts here
 > are the live/runnable versions (they import the SilentWear PyTorch helpers and run in `agitated_hugle`).
 
 

@@ -166,16 +166,24 @@ lr 1e-3, else identical recipe). It beats head-only on **all 4 subjects**:
   except block-4 conv + fc before the optimizer step; exact freeze under plain SGD-no-wd), at the cost of
   one extra block's backward. See `exp13_progressive_unfreeze/FINDINGS.md`.
 
-**CORRECTION (exp13c, multi-seed):** the numbers above are single seed-42 draws. Re-running S01 over 10
-draw seeds gives K1 − K0 = **+0.20 ± 0.57 pp (indistinguishable from zero, K1 wins 7/10)** — the +1.53 pp
-on seed-42 was a lucky draw. So the 4-subject +1.63 pp (single-seed-per-subject) is **not established**;
-S02/S03's larger single-seed gains are being multi-seeded (exp13d) to check if they survive.
+**CORRECTION → FINAL (exp13c+d, 10 seeds/subject):** the K=1 numbers above are single seed-42 draws and
+were misleading. Multi-seeded, K1 − K0 is **within noise on 3 of 4 subjects** and a **large robust win on
+exactly one**:
 
-**Deployment pick — unchanged: head-only + BN-fold.** Last-block+fc (K=1) is only a *candidate*, pending
-multi-seed confirmation on S02–S04; on S01 it is within noise. It remains attractive *if* the harder
-subjects hold up (and is cheaply deployable via grad-buffer masking), but on current evidence there is no
-robust reason to switch from head-only. (Methodological note: this is the second time a single stratified
-draw looked like a real effect and washed out under multi-seed — always multi-seed before concluding.)
+| | S01 | S02 | S03 | S04 |
+|---|---|---|---|---|
+| head-only K0 | 85.91 | 65.58 | 74.79 | 84.01 |
+| K1 − K0 (10 seeds) | +0.20±0.57 | **+4.50±0.71 (10/10)** | +0.37±0.60 | +0.25±0.88 |
+
+**The K=1 gain scales inversely with head-only's accuracy:** it rescues +4.5 pp on S02 (head-only only
+66% — features genuinely session-shifted) and adds ≈0 where head-only already ≥75%.
+
+**Deployment pick — FINAL: head-only + BN-fold** (simplest, lowest variance, and last-block FT adds
+nothing on 3/4 subjects). **Last-block+fc (K=1, lr 1e-3) is a targeted fallback** — enable it only for a
+subject where head-only underperforms, where it can recover several pp; cheaply deployable via grad-buffer
+masking (no graph change), so an adaptive "if accuracy low, unfreeze last block" policy is realistic.
+(Methodological note: S01's +1.53 and S03's +1.85 single-seed "wins" both washed out under 10 seeds — only
+S02's survived. Always multi-seed before concluding.)
 
 ## Source files
 Setting 1: `exp7_headonly_4subj/results/headonly_S01.csv`, `s2_vs_headonly_seedsweep/`. Setting 2:

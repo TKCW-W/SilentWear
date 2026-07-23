@@ -90,10 +90,31 @@ seed-42 draw was **largely a lucky draw**, not a real effect. This forces a corr
 - **Honest current status:** K=1 is *at best a marginal, draw-sensitive* improvement on S01 (~+0.2 pp,
   noise). It may still help more on the harder subjects (S02/S03), but that is unconfirmed.
 
-**Revised deployment implication:** **head-only remains the pick.** K=1 is a candidate *only if* a
-multi-seed pass on S02–S04 shows its larger single-seed gains there survive — running now (exp13d). If
-they collapse like S01's did, last-block FT is not worth the extra backward. Lesson (again): never trust
-a single stratified draw — the earlier per-subject "wins" were within draw noise.
+## FINAL multi-seed verdict (exp13c + exp13d, 10 seeds/subject) — K=1 helps ONLY the hard subject
+| subject | head-only K0 | K1 last-block | K1 − K0 (10 seeds) | verdict |
+|---|---|---|---|---|
+| S01 | 85.91 ± 0.64 | 86.11 ± 0.99 | +0.20 ± 0.57 (7/10) | within noise |
+| **S02** | **65.58 ± 0.43** | **70.08 ± 0.67** | **+4.50 ± 0.71 (10/10)** | **robust, large** |
+| S03 | 74.79 ± 0.54 | 75.15 ± 0.71 | +0.37 ± 0.60 (6/10) | within noise |
+| S04 | 84.01 ± 0.39 | 84.26 ± 0.70 | +0.25 ± 0.88 (7/10) | within noise |
+
+- **K=1 gives a large, draw-robust gain ONLY on S02** (+4.50 pp, wins 10/10). On S01/S03/S04 it is within
+  noise (+0.2…+0.4, wins 6–7/10). The combined S02–S04 "+1.71 ± 2.13" is misleading — entirely
+  S02-driven (note the 2.13 std).
+- **Clean interpretable rule: the K=1 benefit scales INVERSELY with head-only's baseline accuracy.**
+  S02 (head-only 66%) → +4.5; S03/S04/S01 (75–86%) → ≈0. When head-only already captures the session
+  (features transfer well), adapting the last block adds nothing; when head-only struggles (S02's
+  features are genuinely session-shifted), last-block FT rescues +4.5 pp.
+
+## Deployment guidance (final)
+- **Head-only + BN-fold remains the default deployment recipe** — simplest, lowest variance, and on 3 of
+  4 subjects last-block FT adds nothing.
+- **Last-block+fc (K=1, lr 1e-3) is a targeted fallback**: worth enabling only for a subject where
+  head-only underperforms (e.g. low post-FT accuracy), where it can recover several pp. It is cheaply
+  deployable via grad-buffer masking (no graph change), so an adaptive policy — "if a subject's accuracy
+  is low, unfreeze the last block" — is realistic on-device.
+- **Lesson (twice over):** never trust a single stratified draw — S01's +1.53 and S03's +1.85 single-seed
+  "wins" both washed out under 10 seeds; only S02's survived.
 
 ## Files
 `run_progressive_unfreeze.py`, `run_4subj_confirm.py`,

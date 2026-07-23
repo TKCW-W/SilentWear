@@ -24,6 +24,14 @@ the 2 non-held-out sessions (LOSO), FT on 30% of batch 1 (6/class, seed 42), eva
 | GN Edge-FT no-cosine | 80.56 ± 11.10 |
 | GN Edge-FT sum-grad | 44.07 ± 3.90 |
 
+## On the BN baseline (why 87.78, not the official 88.52)
+The `BN head-only` row here (87.78) is a **from-scratch** BN, pretrained with the *same* recipe as the GN
+model — deliberately, so the BN-vs-GN comparison isolates the **norm** and is not confounded by pretraining
+recipe/quality. Our **official deployed head-only** (from the inter-session checkpoint) is **88.52** (b2,
+3-fold S01, `recipe_comparison`). The ~0.7 pp gap between the two is exactly that pretraining-recipe
+difference. **Against the official 88.52, Edge-FT (best 87.41) loses outright (−1.1 pp)** — so using the
+deployed baseline only strengthens the verdict; using the controlled from-scratch BN (87.78) makes it a tie.
+
 ## The finding — Edge-FT ties head-only at best, never beats it
 - **Paper recipe as-is (lr 5e-3) = 80.74 ± 10.3** — barely above plain GN, very noisy, well below head-only.
 - **lr is the whole story:** re-tuning to lr 1e-3 → **87.41 ± 1.16, which TIES head-only (87.78)** and has

@@ -72,11 +72,28 @@ Ran K∈{0,1,2} at each K's best lr across S01–S04 (vocalized, 3 folds, stream
   last conv block + classifier.
 - K=2 does NOT generalise as a further gain (77.96, ≈ head-only) — the win is specifically **one** block.
 
-**Deployment implication:** last-block+fc (K=1, lr 1e-3) supersedes head-only as the recommended
-on-device recipe — same frozen-BN regime, deployable with no graph change via grad-buffer masking (zero
-all grad buffers except block-4 conv + fc before the optimizer step), at the cost of one extra block's
-backward. Remaining check to fully lock it in: a multi-seed (≥10 draw) pass, since these are single
-seed-42 draws; but 4/4 subjects at +1.63 pp is already a strong, consistent signal.
+## Multi-seed lock-in (exp13c) — the S01 gain is WITHIN NOISE (correction)
+The exp13/exp13b numbers are single seed-42 draws. Re-running S01 over 10 draw seeds (K0 vs K1):
+
+| S01, 10 seeds | mean ± std |
+|---|---|
+| K0 head-only | 85.91 ± 0.64 |
+| K1 last-block+fc | 86.11 ± 0.99 |
+| **K1 − K0** | **+0.20 ± 0.57** (K1 wins 7/10) |
+
+**So on S01 the K=1 advantage is +0.20 ± 0.57 — indistinguishable from zero.** The +1.53 pp seen on the
+seed-42 draw was **largely a lucky draw**, not a real effect. This forces a correction:
+
+- **The "supersedes head-only" claim is NOT supported.** The 4-subject +1.63 pp (exp13b) was
+  single-seed-per-subject; since S01's single-seed gain evaporated under multi-seed, the S02/S03 gains
+  (+2.82 / +1.85) are equally suspect until multi-seeded.
+- **Honest current status:** K=1 is *at best a marginal, draw-sensitive* improvement on S01 (~+0.2 pp,
+  noise). It may still help more on the harder subjects (S02/S03), but that is unconfirmed.
+
+**Revised deployment implication:** **head-only remains the pick.** K=1 is a candidate *only if* a
+multi-seed pass on S02–S04 shows its larger single-seed gains there survive — running now (exp13d). If
+they collapse like S01's did, last-block FT is not worth the extra backward. Lesson (again): never trust
+a single stratified draw — the earlier per-subject "wins" were within draw noise.
 
 ## Files
 `run_progressive_unfreeze.py`, `run_4subj_confirm.py`,

@@ -55,5 +55,29 @@ at last-block+fc** for S01 (+1.8 pp over head-only, closest to the paper of any 
 generalizes across subjects, it is the new deployment candidate — and it is cheaply deployable via
 grad-buffer masking, no graph regeneration.
 
+## 4-subject confirmation (exp13b) — K=1 GENERALISES, wins on every subject
+Ran K∈{0,1,2} at each K's best lr across S01–S04 (vocalized, 3 folds, streaming b1→b5):
+
+| subject | K0 head-only | **K1 last-block+fc** | K2 | K1−K0 |
+|---|---|---|---|---|
+| S01 | 84.95 | 86.48 | 85.60 | +1.53 |
+| S02 | 65.88 | 68.70 | 67.45 | +2.82 |
+| S03 | 75.00 | 76.85 | 74.58 | +1.85 |
+| S04 | 84.17 | 84.49 | 84.21 | +0.32 |
+| **mean** | **77.50** | **79.13** | 77.96 | **+1.63** |
+
+- **K=1 beats head-only on all 4 subjects** (+1.63 pp mean; +0.3 … +2.8 pp range) — not an S01 fluke.
+- **K=1 nearly closes the gap to the paper** (4-subj full-model Adam FT ≈ 80.02): head-only trails by
+  ~2.5 pp, K=1 trails by only **~0.9 pp** — the best on-device result we have, achieved with just the
+  last conv block + classifier.
+- K=2 does NOT generalise as a further gain (77.96, ≈ head-only) — the win is specifically **one** block.
+
+**Deployment implication:** last-block+fc (K=1, lr 1e-3) supersedes head-only as the recommended
+on-device recipe — same frozen-BN regime, deployable with no graph change via grad-buffer masking (zero
+all grad buffers except block-4 conv + fc before the optimizer step), at the cost of one extra block's
+backward. Remaining check to fully lock it in: a multi-seed (≥10 draw) pass, since these are single
+seed-42 draws; but 4/4 subjects at +1.63 pp is already a strong, consistent signal.
+
 ## Files
-`run_progressive_unfreeze.py`, `results/progressive_unfreeze_S01.csv`.
+`run_progressive_unfreeze.py`, `run_4subj_confirm.py`,
+`results/progressive_unfreeze_S01.csv`, `results/progressive_unfreeze_4subj.csv`.

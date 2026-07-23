@@ -143,6 +143,33 @@ simplest and cheapest, has the lowest variance, and avoids every un-portable ing
 recollection kernel, lr re-tuning). The residual ~3.5 pp to the paper is the paper's un-portable
 batch-32-live-BN feature adaptation, which no batch-1 on-device recipe can reproduce.
 
+## UPDATE (exp13) — a better middle ground: last-block+fc supersedes head-only
+
+After this 5-setting analysis, a progressive-unfreezing sweep (exp13) found a genuine sweet spot
+*between* head-only and full training: **unfreeze only the LAST conv block + fc** (frozen pretrained BN,
+lr 1e-3, else identical recipe). It beats head-only on **all 4 subjects**:
+
+| | S01 | S02 | S03 | S04 | 4-subj mean | vs paper (~80.02) |
+|---|---|---|---|---|---|---|
+| head-only (fc only) | 84.95 | 65.88 | 75.00 | 84.17 | 77.50 | −2.5 |
+| **last-block + fc (K=1)** | **86.48** | **68.70** | **76.85** | **84.49** | **79.13** | **−0.9** |
+| full (K=5) | 85.32 | — | — | — | — | |
+
+- **+1.63 pp over head-only (4-subj mean), winning on every subject**, and it **nearly closes the gap to
+  the paper** (~0.9 pp vs head-only's ~2.5 pp) — the best on-device result we have.
+- **Why K=1 and not more:** the last block holds the most session-specific features; adapting just it
+  captures the feature shift the classifier alone can't, while keeping blocks 0–3 frozen avoids the
+  overfitting + activation↔stat mismatch that caps K≥2 and full training (which fall back to ~85/≈77).
+- **This revises the "~3.5 pp to the paper is un-portable" conclusion above:** most of that gap was
+  *recoverable* by adapting one block — it was a capacity/scope choice, not purely the batch-32-BN wall.
+- **Deployable with no graph change** via per-parameter grad-buffer masking (zero every grad-accum buffer
+  except block-4 conv + fc before the optimizer step; exact freeze under plain SGD-no-wd), at the cost of
+  one extra block's backward. See `exp13_progressive_unfreeze/FINDINGS.md`.
+
+**Revised deployment pick:** **last-block + fc (K=1, lr 1e-3)** — beats head-only across all subjects,
+nearly matches the paper, and stays cheap/deployable. Head-only remains the safe fallback (simplest,
+lowest variance). Final lock-in check: a multi-seed pass (these are single seed-42 draws).
+
 ## Source files
 Setting 1: `exp7_headonly_4subj/results/headonly_S01.csv`, `s2_vs_headonly_seedsweep/`. Setting 2:
 `exp5_streaming_adabn_incremental/results/streaming_incr_S01.csv`. Settings 1/3/5 per-batch:

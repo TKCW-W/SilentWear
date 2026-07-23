@@ -1,7 +1,7 @@
-batch,note,head_only_fold3,k1_lastblock_fold3,paper_S01_3fold_ref
-1,zero-shot,80.56,80.56,72.59
-2,FT_on_b1,89.44,87.78,87.22
-3,FT_on_b1-2,80.00,78.89,87.96
-4,FT_on_b1-3,83.89,83.89,90.37
-5,FT_on_b1-4,82.22,85.56,87.41
-mean_b2_5,,83.89,84.03,88.24
+batch,note,head_only_fold3,k1_lastblock_fold3,paper_fold3
+1,zero-shot,80.56,80.56,80.56
+2,FT_on_b1,89.44,87.78,87.78
+3,FT_on_b1-2,80.00,78.89,86.67
+4,FT_on_b1-3,83.89,83.89,88.33
+5,FT_on_b1-4,82.22,85.56,87.78
+mean_b2_5,,83.89,84.03,87.64

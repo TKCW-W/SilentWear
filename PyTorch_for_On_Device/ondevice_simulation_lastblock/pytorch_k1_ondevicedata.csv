@@ -1,0 +1,6 @@
+batch,note,pytorch_k1,ondevice_gvsoc
+1,zero-shot,80.56,80.56
+2,FT through b1,87.78,87.78
+3,FT through b2,78.89,
+4,FT through b3,83.89,
+5,FT through b4,85.56,

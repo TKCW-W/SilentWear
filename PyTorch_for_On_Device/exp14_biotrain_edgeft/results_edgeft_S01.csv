@@ -1,0 +1,10 @@
+config,mean,std
+BN head-only (ours),87.78,2.42
+GN full plain-SGD (idea2),80.0,4.94
+GN Edge-FT (mom0.9 wd1e-3 cos lr5e-3 b8),80.74,10.32
+GN Edge-FT lr1e-2,74.26,5.16
+GN Edge-FT lr1e-3,87.41,1.16
+GN Edge-FT no-momentum,85.56,2.42
+GN Edge-FT no-wd,80.74,9.82
+GN Edge-FT no-cosine,80.56,11.1
+GN Edge-FT sum-grad,44.07,3.9
